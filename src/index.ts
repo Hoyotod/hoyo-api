@@ -28,6 +28,7 @@ const allowedOrigins = [
   "http://127.0.0.1:8787",
   "https://hoyo.haiueom.workers.dev",
   "https://hoyo-api.haiueom.workers.dev",
+  "https://hoyo-web.haiueom.workers.dev",
   "https://hoyo.pages.dev",
   "https://hoyo.haiueom.pages.dev",
   // Allow requests without origin (curl, mobile apps)
