@@ -1,0 +1,26 @@
+{
+  "name": "hoyo-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply hoyo-db",
+    "db:migrate:local": "wrangler d1 migrations apply hoyo-db --local"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "better-auth": "^1.7.15",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.16",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261103.1",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.157.0"
+  }
+}
