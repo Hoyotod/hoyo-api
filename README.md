@@ -41,3 +41,7 @@ curl -H "X-API-Key: $KEY" https://hoyo-api.haiueom.workers.dev/api/internal/acco
 
 The response contains plaintext `cookieToken` values — treat the key like a database
 password and never expose it to the browser.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
