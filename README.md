@@ -26,7 +26,10 @@ pnpm db:migrate:local # apply local D1 migrations
 - `PUT /api/accounts/:id` — update
 - `GET /api/accounts/:id/token` — get cookie token
 - `DELETE /api/accounts/:id` — delete
-- `GET /api/internal/accounts` — **all** game accounts (every user, decrypted tokens) for the `daily`/`redeem` scripts; requires `X-API-Key: $SERVICE_API_KEY`
+- `GET /api/internal/accounts` - **all** game accounts (every user, decrypted tokens) for the `daily`/`redeem` scripts; requires `X-API-Key: $SERVICE_API_KEY`
+- `GET /api/internal/redemptions` - per-account redemption history for the `redeem` script
+- `POST /api/internal/redemptions` - record terminal redemption results (bulk upsert)
+- `DELETE /api/internal/redemptions` - clear redemption history
 
 ## Server-to-server access
 

@@ -85,6 +85,20 @@ export const updateAccountSchema = z.object({
   cookieToken: cookieTokenSchema.optional(),
 });
 
+// Terminal redemption results from the `redeem` script. Only results that
+// must never be retried for that account are accepted.
+export const redemptionSchema = z.object({
+  gameAccountId: z.string().uuid(),
+  game: z.enum(["gi", "sr", "zz"]),
+  code: z.string().trim().min(1).max(64),
+  uid: z.string().trim().max(64).nullable().optional(),
+  status: z.enum(["success", "claimed", "invalid"]),
+});
+
+export const redemptionBatchSchema = z.object({
+  redemptions: z.array(redemptionSchema).min(1).max(1000),
+});
+
 export type FieldErrors = Record<string, string>;
 
 export function fieldErrors<T>(schema: ZodType<T>, data: unknown) {

@@ -98,6 +98,34 @@ export const gameAccounts = sqliteTable(
   }),
 );
 
+// Per-account redemption history for the `redeem` script. A row means the
+// code reached a terminal state for that game account (success, already
+// claimed, or permanently invalid) and must not be attempted again.
+export const redeemedCodes = sqliteTable(
+  "redeemed_code",
+  {
+    id: text("id").primaryKey(),
+    gameAccountId: text("gameAccountId")
+      .notNull()
+      .references(() => gameAccounts.id, { onDelete: "cascade" }),
+    game: text("game").notNull(),
+    code: text("code").notNull(),
+    uid: text("uid"),
+    status: text("status").notNull(),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull(),
+  },
+  (table) => ({
+    accountGameCodeUnique: uniqueIndex(
+      "redeemed_code_account_game_code_unique",
+    ).on(table.gameAccountId, table.game, table.code),
+    accountGameIdx: index("redeemed_code_account_game_idx").on(
+      table.gameAccountId,
+      table.game,
+    ),
+  }),
+);
+
 export const loginAttempts = sqliteTable(
   "login_attempt",
   {
@@ -119,10 +147,18 @@ export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
 }));
 
-export const gameAccountsRelations = relations(gameAccounts, ({ one }) => ({
+export const gameAccountsRelations = relations(gameAccounts, ({ one, many }) => ({
   user: one(users, {
     fields: [gameAccounts.userId],
     references: [users.id],
+  }),
+  redeemedCodes: many(redeemedCodes),
+}));
+
+export const redeemedCodesRelations = relations(redeemedCodes, ({ one }) => ({
+  gameAccount: one(gameAccounts, {
+    fields: [redeemedCodes.gameAccountId],
+    references: [gameAccounts.id],
   }),
 }));
 

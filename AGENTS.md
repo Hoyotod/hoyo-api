@@ -25,7 +25,7 @@ Always use `pnpm` (never `npm`/`npx`).
 
 Source of truth: `src/lib/db/schema.ts` (Drizzle / SQLite).
 
-Tables: `user`, `session`, `account` (better-auth authAccounts), `verification`, `game_account` (custom Hoyoverse accounts), `login_attempt`.
+Tables: `user`, `session`, `account` (better-auth authAccounts), `verification`, `game_account` (custom Hoyoverse accounts), `redeemed_code` (per-account redemption history), `login_attempt`.
 
 Dates are `text()` (ISO 8601 UTC) for better-auth compatibility — not `integer({ mode: "timestamp_ms" })`. `session` requires `token` (unique, not null), `createdAt`, `updatedAt`.
 
@@ -42,6 +42,9 @@ Dates are `text()` (ISO 8601 UTC) for better-auth compatibility — not `integer
 9. `GET /api/accounts/:id/token` - fetch sensitive cookie token on demand
 10. `DELETE /api/accounts/:id` - delete
 11. `GET /api/internal/accounts` - server-to-server: all users' game accounts + decrypted tokens + owner `webhook`/`telegramChatId` (`X-API-Key: SERVICE_API_KEY`; 404 when the secret is unset)
+12. `GET /api/internal/redemptions` - all per-account redemption history
+13. `POST /api/internal/redemptions` - bulk upsert terminal results (`success`/`claimed`/`invalid`)
+14. `DELETE /api/internal/redemptions` - clear history globally (or `?gameAccountId=`)
 
 ## Security Notes
 

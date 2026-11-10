@@ -5,5 +5,13 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "sqlite",
   driver: "d1-http",
-  tablesFilter: ["user", "session", "account", "verification", "game_account", "login_attempt"],
+  tablesFilter: [
+    "user",
+    "session",
+    "account",
+    "verification",
+    "game_account",
+    "redeemed_code",
+    "login_attempt",
+  ],
 });
