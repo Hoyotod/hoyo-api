@@ -114,11 +114,18 @@ app.post(
     const { redemptions } = c.req.valid("json");
 
     const accountIds = [...new Set(redemptions.map((r) => r.gameAccountId))];
-    const existing = await db
-      .select({ id: gameAccounts.id })
-      .from(gameAccounts)
-      .where(inArray(gameAccounts.id, accountIds));
-    const existingIds = new Set(existing.map((row) => row.id));
+    // D1 allows at most 100 bound parameters per query; chunk the id lookup
+    // for users with many game accounts.
+    const existingIds = new Set<string>();
+    for (let i = 0; i < accountIds.length; i += 90) {
+      const existing = await db
+        .select({ id: gameAccounts.id })
+        .from(gameAccounts)
+        .where(inArray(gameAccounts.id, accountIds.slice(i, i + 90)));
+      for (const row of existing) {
+        existingIds.add(row.id);
+      }
+    }
 
     const now = new Date().toISOString();
     const values = redemptions
