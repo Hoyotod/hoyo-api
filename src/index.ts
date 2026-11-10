@@ -5,7 +5,6 @@ import { sql } from "drizzle-orm";
 import { initAuth } from "./lib/auth";
 import { createDb } from "./lib/db";
 import { users, gameAccounts } from "./lib/db/schema";
-import { isBlocked, recordFailure, recordSuccess } from "./lib/rate-limit";
 import usersRoute from "./routes/users";
 import accountsRoute from "./routes/accounts";
 import internalRoute from "./routes/internal";
@@ -87,34 +86,6 @@ function getClientIp(c: { req: { header: (n: string) => string | undefined } }):
   if (xff) return xff.split(",")[0].trim() || "unknown";
   return "unknown";
 }
-
-// Rate limiting for auth endpoints (30 req/60s per IP via Workers binding)
-// plus DB-backed brute-force tracking (5 failures / 15 min per IP).
-app.use("/api/auth/*", async (c, next) => {
-  const ip = getClientIp(c);
-  const { success } = await c.env.LOGIN_ROUTE_RATE_LIMITER.limit({ key: ip });
-  if (!success) {
-    return c.json({ error: "Too many requests" }, 429);
-  }
-
-  const db = c.get("db");
-  if (await isBlocked(db, `ip:${ip}`)) {
-    return c.json({ error: "Too many requests" }, 429);
-  }
-
-  await next();
-
-  if (c.res.status === 200 || c.res.status === 201) {
-    await recordSuccess(db, `ip:${ip}`).catch(() => {});
-  } else if (
-    c.res.status === 400 ||
-    c.res.status === 401 ||
-    c.res.status === 403 ||
-    c.res.status === 422
-  ) {
-    await recordFailure(db, `ip:${ip}`).catch(() => {});
-  }
-});
 
 // Sensitive token reads get the same Workers rate limiter (per-IP) so a
 // stolen session cannot brute-force account IDs at unlimited speed.

@@ -126,22 +126,6 @@ export const redeemedCodes = sqliteTable(
   }),
 );
 
-export const loginAttempts = sqliteTable(
-  "login_attempt",
-  {
-    identifier: text("identifier").notNull(),
-    windowStart: text("windowStart").notNull(),
-    count: integer("count").notNull().default(0),
-    updatedAt: text("updatedAt").notNull(),
-  },
-  (t) => ({
-    identifierWindowUnique: uniqueIndex("login_attempt_identifier_window_unique").on(
-      t.identifier,
-      t.windowStart,
-    ),
-  }),
-);
-
 export const usersRelations = relations(users, ({ many }) => ({
   gameAccounts: many(gameAccounts),
   sessions: many(sessions),

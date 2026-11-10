@@ -12,15 +12,16 @@ import type { AppEnv } from "../index";
 // because those scripts must process every user's game accounts.
 const app = new Hono<AppEnv>();
 
-/** Constant-time-ish string comparison (no early exit on first mismatch). */
+/** Constant-time string comparison. Length check uses XOR to avoid early exit. */
 function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
   const ab = enc.encode(a);
   const bb = enc.encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) {
-    diff |= ab[i] ^ bb[i];
+  // XOR lengths into diff so mismatch still iterates full loop
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
   }
   return diff === 0;
 }

@@ -1,31 +1,8 @@
-import { z, type ZodType } from "zod";
+import { z } from "zod";
 
 // Shared server-side schemas. Routes import from here — do not duplicate
 // inline schemas (previously `validation.ts` was dead code while routes
 // defined their own, causing drift: e.g. missing `.trim()` on cookieToken).
-
-export const loginSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, "Email is required")
-    .toLowerCase()
-    .email("Invalid email address")
-    .max(254),
-  password: z.string().min(1, "Password is required").max(128),
-});
-
-export const registerSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  email: z
-    .string()
-    .trim()
-    .min(1)
-    .toLowerCase()
-    .email("Invalid email address")
-    .max(254),
-  password: z.string().min(8).max(128),
-});
 
 // Partial update: every field optional, but password/email changes require
 // `currentPassword`. Webhook preserves value when omitted (`undefined`)
@@ -98,20 +75,3 @@ export const redemptionSchema = z.object({
 export const redemptionBatchSchema = z.object({
   redemptions: z.array(redemptionSchema).min(1).max(1000),
 });
-
-export type FieldErrors = Record<string, string>;
-
-export function fieldErrors<T>(schema: ZodType<T>, data: unknown) {
-  const result = schema.safeParse(data);
-  if (result.success) {
-    return { success: true as const, data: result.data };
-  }
-  const errors: FieldErrors = {};
-  for (const issue of result.error.issues) {
-    const path = issue.path.join(".");
-    if (path && !errors[path]) {
-      errors[path] = issue.message;
-    }
-  }
-  return { success: false as const, errors };
-}
