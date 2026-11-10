@@ -1,21 +1,31 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { eq, and } from "drizzle-orm";
 import { gameAccounts } from "../lib/db/schema";
+import { accountSchema, updateAccountSchema } from "../lib/validation";
+import { encryptToken, decryptToken } from "../lib/crypto";
+import { getTokenSecret } from "../lib/env";
+import { requireAuth } from "../middleware/requireAuth";
 import type { AppEnv } from "../index";
 
 const app = new Hono<AppEnv>();
 
-// Get all accounts for current user
+app.use("*", requireAuth);
+
+function toPublicAccount(row: {
+  id: string;
+  name: string;
+  accountId: string;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  return row;
+}
+
+// Get all accounts for current user (never returns cookieToken)
 app.get("/", async (c) => {
-  const auth = c.get("auth");
   const db = c.get("db");
-  
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+  const user = c.get("user");
 
   const accounts = await db
     .select({
@@ -26,67 +36,57 @@ app.get("/", async (c) => {
       updatedAt: gameAccounts.updatedAt,
     })
     .from(gameAccounts)
-    .where(eq(gameAccounts.userId, session.user.id));
+    .where(eq(gameAccounts.userId, user.id));
 
   return c.json({ accounts });
 });
 
 // Create account
-const createSchema = z.object({
-  name: z.string().min(1).max(100).trim(),
-  accountId: z.string().min(1).max(255).trim(),
-  cookieToken: z.string().min(1).max(2048),
-});
-
-app.post("/", zValidator("json", createSchema), async (c) => {
-  const auth = c.get("auth");
+app.post("/", zValidator("json", accountSchema), async (c) => {
   const db = c.get("db");
-  
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
+  const user = c.get("user");
   const { name, accountId: accId, cookieToken } = c.req.valid("json");
+
+  const encrypted = await encryptToken(cookieToken, getTokenSecret(c.env));
 
   try {
     const now = new Date().toISOString();
-    const result = await db.insert(gameAccounts).values({
-      id: crypto.randomUUID(),
-      name,
-      accountId: accId,
-      cookieToken,
-      userId: session.user.id,
-      createdAt: now,
-      updatedAt: now,
-    }).returning();
+    const result = await db
+      .insert(gameAccounts)
+      .values({
+        id: crypto.randomUUID(),
+        name,
+        accountId: accId,
+        cookieToken: encrypted,
+        userId: user.id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({
+        id: gameAccounts.id,
+        name: gameAccounts.name,
+        accountId: gameAccounts.accountId,
+        createdAt: gameAccounts.createdAt,
+        updatedAt: gameAccounts.updatedAt,
+      });
 
-    return c.json({ account: result[0] }, 201);
+    // Never echo cookieToken back (see SEC-07).
+    return c.json({ account: toPublicAccount(result[0]) }, 201);
   } catch (e) {
-    if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
-      return c.json({ error: "Account ID already exists" }, 409);
+    if (e instanceof Error && /unique/i.test(e.message)) {
+      // Per-user (userId, accountId) unique — only reveals duplicates
+      // within the caller's own accounts, not other users' (SEC-06).
+      return c.json({ error: "Account ID already exists for this user" }, 409);
     }
     throw e;
   }
 });
 
 // Update account
-const updateSchema = z.object({
-  name: z.string().min(1).max(100).trim(),
-  accountId: z.string().min(1).max(255).trim(),
-  cookieToken: z.string().min(1).max(2048).optional(),
-});
-
-app.put("/:id", zValidator("json", updateSchema), async (c) => {
-  const auth = c.get("auth");
+app.put("/:id", zValidator("json", updateAccountSchema), async (c) => {
   const db = c.get("db");
+  const user = c.get("user");
   const id = c.req.param("id");
-  
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
   const { name, accountId: accId, cookieToken } = c.req.valid("json");
 
   const updateData: Record<string, unknown> = {
@@ -96,15 +96,21 @@ app.put("/:id", zValidator("json", updateSchema), async (c) => {
   };
 
   if (cookieToken) {
-    updateData.cookieToken = cookieToken;
+    updateData.cookieToken = await encryptToken(cookieToken, getTokenSecret(c.env));
   }
 
   try {
     const result = await db
       .update(gameAccounts)
       .set(updateData)
-      .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, session.user.id)))
-      .returning();
+      .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, user.id)))
+      .returning({
+        id: gameAccounts.id,
+        name: gameAccounts.name,
+        accountId: gameAccounts.accountId,
+        createdAt: gameAccounts.createdAt,
+        updatedAt: gameAccounts.updatedAt,
+      });
 
     if (!result[0]) {
       return c.json({ error: "Account not found" }, 404);
@@ -112,52 +118,45 @@ app.put("/:id", zValidator("json", updateSchema), async (c) => {
 
     return c.json({ account: result[0] });
   } catch (e) {
-    if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
-      return c.json({ error: "Account ID already exists" }, 409);
+    if (e instanceof Error && /unique/i.test(e.message)) {
+      return c.json({ error: "Account ID already exists for this user" }, 409);
     }
     throw e;
   }
 });
 
-// Get cookie token (sensitive)
+// Get cookie token (sensitive) — decrypt at rest, never cached.
 app.get("/:id/token", async (c) => {
-  const auth = c.get("auth");
   const db = c.get("db");
+  const user = c.get("user");
   const id = c.req.param("id");
-  
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
 
-  const account = await db
+  const row = await db
     .select({ cookieToken: gameAccounts.cookieToken })
     .from(gameAccounts)
-    .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, session.user.id)))
+    .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, user.id)))
     .limit(1);
 
-  if (!account[0]) {
+  if (!row[0]) {
     return c.json({ error: "Account not found" }, 404);
   }
 
-  return c.json({ cookieToken: account[0].cookieToken });
+  const plaintext = await decryptToken(row[0].cookieToken, getTokenSecret(c.env));
+  c.header("Cache-Control", "no-store, private");
+  c.header("Pragma", "no-cache");
+  return c.json({ cookieToken: plaintext });
 });
 
 // Delete account
 app.delete("/:id", async (c) => {
-  const auth = c.get("auth");
   const db = c.get("db");
+  const user = c.get("user");
   const id = c.req.param("id");
-  
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session?.user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
 
   const result = await db
     .delete(gameAccounts)
-    .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, session.user.id)))
-    .returning();
+    .where(and(eq(gameAccounts.id, id), eq(gameAccounts.userId, user.id)))
+    .returning({ id: gameAccounts.id });
 
   if (!result[0]) {
     return c.json({ error: "Account not found" }, 404);

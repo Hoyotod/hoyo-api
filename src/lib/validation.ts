@@ -1,53 +1,69 @@
 import { z, type ZodType } from "zod";
 
+// Shared server-side schemas. Routes import from here — do not duplicate
+// inline schemas (previously `validation.ts` was dead code while routes
+// defined their own, causing drift: e.g. missing `.trim()` on cookieToken).
+
 export const loginSchema = z.object({
   email: z
     .string()
     .trim()
     .min(1, "Email is required")
     .toLowerCase()
-    .email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+    .email("Invalid email address")
+    .max(254),
+  password: z.string().min(1, "Password is required").max(128),
 });
 
 export const registerSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
+  name: z.string().trim().min(1).max(100),
   email: z
     .string()
     .trim()
-    .min(1, "Email is required")
+    .min(1)
     .toLowerCase()
-    .email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+    .email("Invalid email address")
+    .max(254),
+  password: z.string().min(8).max(128),
 });
 
-export const updateProfileSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
-  email: z
-    .string()
-    .trim()
-    .min(1, "Email is required")
-    .toLowerCase()
-    .email("Invalid email address"),
-  password: z
-    .union([z.literal(""), z.string().min(8, "Password must be at least 8 characters")])
-    .optional(),
-  webhook: z
-    .union([z.literal(""), z.string().trim().url("Invalid webhook URL")])
-    .optional()
-    .transform((v) => (v === "" ? null : v)),
-});
+// Partial update: every field optional, but password/email changes require
+// `currentPassword`. Webhook preserves value when omitted (`undefined`)
+// and clears only when explicitly `null`.
+export const updateProfileSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Invalid email address")
+      .max(254)
+      .optional(),
+    password: z.string().min(8).max(128).optional(),
+    currentPassword: z.string().min(1).max(128).optional(),
+    webhook: z
+      .union([z.string().trim().url("Invalid webhook URL").max(2048), z.null()])
+      .optional(),
+  })
+  .refine((v) => !(v.password || v.email) || !!v.currentPassword, {
+    message: "currentPassword is required when changing password or email",
+    path: ["currentPassword"],
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: "At least one field is required",
+  });
 
 export const accountSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
-  accountId: z.string().trim().min(1, "Account ID is required"),
-  cookieToken: z.string().trim().min(1, "Cookie token is required"),
+  name: z.string().trim().min(1, "Name is required").max(100),
+  accountId: z.string().trim().min(1, "Account ID is required").max(255),
+  cookieToken: z.string().trim().min(1, "Cookie token is required").max(2048),
 });
 
 export const updateAccountSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
-  accountId: z.string().trim().min(1, "Account ID is required"),
-  cookieToken: z.string().trim().nullish(),
+  name: z.string().trim().min(1, "Name is required").max(100),
+  accountId: z.string().trim().min(1, "Account ID is required").max(255),
+  cookieToken: z.string().trim().min(1).max(2048).optional(),
 });
 
 export type FieldErrors = Record<string, string>;

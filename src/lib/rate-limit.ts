@@ -1,5 +1,4 @@
-import { and } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { eq, lt, and, sql } from "drizzle-orm";
 import type { Db } from "./db";
 import { loginAttempts } from "./db/schema";
 
@@ -15,7 +14,12 @@ export async function isBlocked(db: Db, identifier: string): Promise<boolean> {
   const result = await db
     .select({ count: loginAttempts.count })
     .from(loginAttempts)
-    .where(and(sql`${loginAttempts.identifier} = ${identifier}`, sql`${loginAttempts.windowStart} = ${start}`))
+    .where(
+      and(
+        eq(loginAttempts.identifier, identifier),
+        eq(loginAttempts.windowStart, start),
+      ),
+    )
     .limit(1);
   return result.length > 0 && result[0].count >= MAX_FAILURES;
 }
@@ -23,30 +27,23 @@ export async function isBlocked(db: Db, identifier: string): Promise<boolean> {
 export async function recordFailure(db: Db, identifier: string): Promise<void> {
   const start = windowStart();
   const now = new Date().toISOString();
-
+  // Requires UNIQUE(identifier, windowStart) — added in 0001_harden_schema.
   await db.run(
     sql`INSERT INTO login_attempt (identifier, windowStart, "count", updatedAt)
         VALUES (${identifier}, ${start}, 1, ${now})
         ON CONFLICT(identifier, windowStart) DO UPDATE SET
           "count" = "count" + 1,
-          updatedAt = excluded.updatedAt`
+          updatedAt = excluded.updatedAt`,
   );
-
-  await db.run(
-    sql`DELETE FROM login_attempt WHERE windowStart < ${start}`
-  );
+  await db.delete(loginAttempts).where(lt(loginAttempts.windowStart, start));
 }
 
 export async function recordSuccess(db: Db, identifier: string): Promise<void> {
   const start = windowStart();
   const now = new Date().toISOString();
-
   await db.run(
     sql`UPDATE login_attempt SET "count" = 0, updatedAt = ${now}
-        WHERE identifier = ${identifier} AND windowStart = ${start}`
+        WHERE identifier = ${identifier} AND windowStart = ${start}`,
   );
-
-  await db.run(
-    sql`DELETE FROM login_attempt WHERE windowStart < ${start}`
-  );
+  await db.delete(loginAttempts).where(lt(loginAttempts.windowStart, start));
 }
