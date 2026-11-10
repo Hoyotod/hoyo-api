@@ -48,7 +48,7 @@ Dates are `text()` (ISO 8601 UTC) for better-auth compatibility — not `integer
 - **CORS**: only whitelisted origins (frontend Pages + localhost). Requests without `Origin` header (curl, mobile) return `*`.
 - **Rate limiting**: 30 req/60s per IP on `/api/auth/*` via Workers Rate Limiting binding.
 - **Security headers**: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`.
-- **Input validation**: Zod with max lengths + trimming; email normalized to lowercase.
+- **Input validation**: Zod with max lengths + trimming; email normalized to lowercase; `cookieToken` must be a single RFC 6265 cookie value (e.g. `v2_CAQSDGRlOG9...`), not a full cookie string like `ltoken=...; ltuid=...`.
 - **Parameterized queries**: user ID never string-interpolated into raw SQL.
 - **Session invalidation**: password change increments `User.sessionVersion`.
 

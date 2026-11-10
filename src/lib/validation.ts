@@ -57,16 +57,32 @@ export const updateProfileSchema = z
     message: "At least one field is required",
   });
 
+// RFC 6265 cookie-value characters: printable ASCII except separators,
+// whitespace, double quote and backslash. HoYoverse tokens look like
+// `v2_CAQSDGRlOG9...`; a full cookie string (`ltoken=...; ltuid=...`)
+// contains a space and `;`, so it is rejected with a helpful message.
+const COOKIE_VALUE_RE = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/;
+
+const cookieTokenSchema = z
+  .string()
+  .trim()
+  .min(1, "Cookie token is required")
+  .max(2048)
+  .regex(
+    COOKIE_VALUE_RE,
+    "Enter only the cookie_token_v2 value (e.g. v2_CAQSDGRlOG9...), not a full cookie string",
+  );
+
 export const accountSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   accountId: z.string().trim().min(1, "Account ID is required").max(255),
-  cookieToken: z.string().trim().min(1, "Cookie token is required").max(2048),
+  cookieToken: cookieTokenSchema,
 });
 
 export const updateAccountSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
   accountId: z.string().trim().min(1, "Account ID is required").max(255),
-  cookieToken: z.string().trim().min(1).max(2048).optional(),
+  cookieToken: cookieTokenSchema.optional(),
 });
 
 export type FieldErrors = Record<string, string>;
