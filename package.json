@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "MIT",
+  "packageManager": "pnpm@11.28.11",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
