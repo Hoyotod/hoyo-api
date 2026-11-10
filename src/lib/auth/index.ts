@@ -47,6 +47,9 @@ export const initAuth = (env: Env) => {
         validateSchema: false,
       },
       useSecureCookies: !isDev,
+      ipAddress: {
+        ipAddressHeaders: ["cf-connecting-ip"],
+      },
     },
     emailAndPassword: {
       enabled: true,
