@@ -8,6 +8,7 @@ import { users, gameAccounts } from "./lib/db/schema";
 import { isBlocked, recordFailure, recordSuccess } from "./lib/rate-limit";
 import usersRoute from "./routes/users";
 import accountsRoute from "./routes/accounts";
+import internalRoute from "./routes/internal";
 import type { Env } from "./lib/env";
 
 export type AppEnv = {
@@ -126,6 +127,18 @@ app.use("/api/accounts/*/token", async (c, next) => {
   await next();
 });
 
+// Server-to-server bulk account read (daily/redeem scripts).
+app.use("/api/internal/*", async (c, next) => {
+  const ip = getClientIp(c);
+  const { success } = await c.env.LOGIN_ROUTE_RATE_LIMITER.limit({
+    key: `internal:${ip}`,
+  });
+  if (!success) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  await next();
+});
+
 // Generic error handling — never leak stacks / driver messages.
 app.onError((err, c) => {
   console.error(err);
@@ -176,5 +189,6 @@ app.all("/api/auth/*", async (c) => {
 // API routes
 app.route("/api/users", usersRoute);
 app.route("/api/accounts", accountsRoute);
+app.route("/api/internal", internalRoute);
 
 export default app;

@@ -21,6 +21,7 @@ app.get("/me", async (c) => {
       name: users.name,
       email: users.email,
       webhook: users.webhook,
+      telegramChatId: users.telegramChatId,
       createdAt: users.createdAt,
     })
     .from(users)
@@ -43,7 +44,8 @@ app.put("/me", zValidator("json", updateProfileSchema), async (c) => {
   const auth = c.get("auth");
   const db = c.get("db");
   const user = c.get("user");
-  const { name, email, password, currentPassword, webhook } = c.req.valid("json");
+  const { name, email, password, currentPassword, webhook, telegramChatId } =
+    c.req.valid("json");
 
   let passwordChanged = false;
   let emailChanged = false;
@@ -121,15 +123,31 @@ app.put("/me", zValidator("json", updateProfileSchema), async (c) => {
   };
   if (name !== undefined) updateData.name = name;
   if (webhook !== undefined) updateData.webhook = webhook;
+  if (telegramChatId !== undefined) updateData.telegramChatId = telegramChatId;
 
-  let updatedUser: { name: string | null; email: string; webhook: string | null } | null = null;
+  let updatedUser: {
+    name: string | null;
+    email: string;
+    webhook: string | null;
+    telegramChatId: string | null;
+  } | null = null;
 
-  if (Object.keys(updateData).length > 1 || name !== undefined || webhook !== undefined) {
+  if (
+    Object.keys(updateData).length > 1 ||
+    name !== undefined ||
+    webhook !== undefined ||
+    telegramChatId !== undefined
+  ) {
     const rows = await db
       .update(users)
       .set(updateData)
       .where(eq(users.id, user.id))
-      .returning({ name: users.name, email: users.email, webhook: users.webhook });
+      .returning({
+        name: users.name,
+        email: users.email,
+        webhook: users.webhook,
+        telegramChatId: users.telegramChatId,
+      });
     updatedUser = rows[0] ?? null;
     if (!updatedUser) {
       return c.json({ error: "User not found" }, 404);
@@ -137,7 +155,12 @@ app.put("/me", zValidator("json", updateProfileSchema), async (c) => {
   } else {
     // Only password/email changed — return current public profile.
     const rows = await db
-      .select({ name: users.name, email: users.email, webhook: users.webhook })
+      .select({
+        name: users.name,
+        email: users.email,
+        webhook: users.webhook,
+        telegramChatId: users.telegramChatId,
+      })
       .from(users)
       .where(eq(users.id, user.id))
       .limit(1);

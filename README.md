@@ -26,3 +26,18 @@ pnpm db:migrate:local # apply local D1 migrations
 - `PUT /api/accounts/:id` — update
 - `GET /api/accounts/:id/token` — get cookie token
 - `DELETE /api/accounts/:id` — delete
+- `GET /api/internal/accounts` — **all** game accounts (every user, decrypted tokens) for the `daily`/`redeem` scripts; requires `X-API-Key: $SERVICE_API_KEY`
+
+## Server-to-server access
+
+`daily` and `redeem` read accounts through `GET /api/internal/accounts`. That route is
+disabled unless the Worker has a `SERVICE_API_KEY` secret, and every request must send it
+in the `X-API-Key` header:
+
+```bash
+openssl rand -base64 32 | wrangler secret put SERVICE_API_KEY
+curl -H "X-API-Key: $KEY" https://hoyo-api.haiueom.workers.dev/api/internal/accounts
+```
+
+The response contains plaintext `cookieToken` values — treat the key like a database
+password and never expose it to the browser.

@@ -15,6 +15,7 @@ export const users = sqliteTable("user", {
   updatedAt: text("updatedAt").notNull(),
   sessionVersion: integer("sessionVersion").notNull().default(0),
   webhook: text("webhook"),
+  telegramChatId: text("telegramChatId"),
 });
 
 // Better-auth session table

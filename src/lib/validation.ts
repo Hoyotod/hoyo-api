@@ -45,6 +45,9 @@ export const updateProfileSchema = z
     webhook: z
       .union([z.string().trim().url("Invalid webhook URL").max(2048), z.null()])
       .optional(),
+    telegramChatId: z
+      .union([z.string().trim().max(64), z.null()])
+      .optional(),
   })
   .refine((v) => !(v.password || v.email) || !!v.currentPassword, {
     message: "currentPassword is required when changing password or email",

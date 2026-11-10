@@ -3,3 +3,7 @@ BETTER_AUTH_SECRET=change-me-openssl-rand-base64-32
 
 # Production baseURL (required for prod, optional locally)
 BETTER_AUTH_URL=https://hoyo-api.haiueom.workers.dev
+
+# Shared secret for server-to-server clients (daily/redeem scripts).
+# Leave empty to disable /api/internal/*. Generate with: openssl rand -base64 32
+SERVICE_API_KEY=

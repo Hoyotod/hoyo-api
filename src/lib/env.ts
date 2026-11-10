@@ -8,6 +8,9 @@ export interface Env {
   // Optional dedicated key for token encryption. When absent we derive
   // the encryption key from BETTER_AUTH_SECRET (see `src/lib/crypto.ts`).
   TOKEN_ENCRYPTION_KEY?: string;
+  // Shared secret for server-to-server clients (daily/redeem scripts) that
+  // need every user's game accounts. When unset the internal route is disabled.
+  SERVICE_API_KEY?: string;
   LOGIN_ROUTE_RATE_LIMITER: RateLimit;
 }
 
