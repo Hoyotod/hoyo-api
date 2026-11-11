@@ -10,8 +10,8 @@ export default defineConfig({
     "session",
     "account",
     "verification",
+    "rate_limit",
     "game_account",
     "redeemed_code",
-    "login_attempt",
   ],
 });
