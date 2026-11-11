@@ -5,8 +5,13 @@ import * as schema from "../db/schema";
 import type { Env } from "../env";
 
 // Audit log helper — console only for now; replace with structured logging in prod.
+// Never throw: a logging failure must not turn a successful auth call into a 500.
 function auditLog(event: string, data: Record<string, unknown>) {
-  console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...data }));
+  try {
+    console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...data }));
+  } catch {
+    // ignore
+  }
 }
 
 export const initAuth = (env: Env) => {
@@ -94,28 +99,32 @@ export const initAuth = (env: Env) => {
       },
     },
     databaseHooks: {
+      // better-auth calls these as `hook(record, endpointContext)` — not `{ data }`.
       session: {
         create: {
-          after: async ({ data }) => {
-            const d = data as { userId: string; id: string };
-            auditLog("session.created", { userId: d.userId, sessionId: d.id });
+          after: async (session) => {
+            const s = session as { userId?: string; id?: string };
+            auditLog("session.created", { userId: s.userId ?? null, sessionId: s.id ?? null });
           },
         },
         delete: {
-          after: async ({ data }) => {
-            const d = data as { id: string };
-            auditLog("session.revoked", { sessionId: d.id });
+          after: async (session) => {
+            const s = session as { userId?: string; id?: string };
+            auditLog("session.revoked", { userId: s.userId ?? null, sessionId: s.id ?? null });
           },
         },
       },
       user: {
         update: {
-          after: async ({ data, oldData }) => {
-            const d = data as { id: string; email: string };
-            const o = oldData as { email?: string } | undefined;
-            if (o?.email !== d.email) {
-              auditLog("user.email_changed", { userId: d.id, oldEmail: o?.email, newEmail: d.email });
-            }
+          after: async (user, ctx) => {
+            // `user` is the update payload; email is only present when it changed.
+            const u = user as { id?: string; email?: string };
+            if (!u?.email) return;
+            const sessionUserId = ctx?.context?.session?.user?.id ?? null;
+            auditLog("user.email_changed", {
+              userId: u.id ?? sessionUserId,
+              newEmail: u.email,
+            });
           },
         },
       },
