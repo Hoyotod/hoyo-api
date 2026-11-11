@@ -71,6 +71,19 @@ export const verifications = sqliteTable(
   (t) => ({ identifierIdx: index("verification_identifier_idx").on(t.identifier) }),
 );
 
+// Better-auth rate limit table (`rateLimit.storage: "database"`).
+// Without it every auth request throws once the limiter tries to persist a hit.
+export const rateLimits = sqliteTable(
+  "rate_limit",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    count: integer("count").notNull(),
+    lastRequest: integer("lastRequest").notNull(),
+  },
+  (t) => ({ lastRequestIdx: index("rate_limit_lastRequest_idx").on(t.lastRequest) }),
+);
+
 // Custom game accounts table (Hoyoverse accounts)
 // `cookieToken` is stored as AES-GCM ciphertext (`v1:...`, see src/lib/crypto.ts).
 // Uniqueness is scoped per-user: (userId, accountId) — a global unique on

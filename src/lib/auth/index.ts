@@ -29,9 +29,6 @@ export const initAuth = (env: Env) => {
   const prodOrigins = [
     "https://hoyo.haiueom.workers.dev",
     "https://hoyo-api.haiueom.workers.dev",
-    "https://hoyo-web.haiueom.workers.dev",
-    "https://hoyo.pages.dev",
-    "https://hoyo.haiueom.pages.dev",
   ];
 
   return betterAuth({
@@ -44,6 +41,7 @@ export const initAuth = (env: Env) => {
         session: schema.sessions,
         account: schema.authAccounts,
         verification: schema.verifications,
+        rateLimit: schema.rateLimits,
       },
     }),
     secret: env.BETTER_AUTH_SECRET,

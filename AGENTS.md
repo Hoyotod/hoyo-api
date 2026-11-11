@@ -25,7 +25,7 @@ Always use `pnpm` (never `npm`/`npx`).
 
 Source of truth: `src/lib/db/schema.ts` (Drizzle / SQLite).
 
-Tables: `user`, `session`, `account` (better-auth authAccounts), `verification`, `game_account` (custom Hoyoverse accounts), `redeemed_code` (per-account redemption history), `login_attempt`.
+Tables: `user`, `session`, `account` (better-auth authAccounts), `verification`, `rate_limit` (better-auth rate limiter), `game_account` (custom Hoyoverse accounts), `redeemed_code` (per-account redemption history).
 
 Dates are `text()` (ISO 8601 UTC) for better-auth compatibility — not `integer({ mode: "timestamp_ms" })`. `session` requires `token` (unique, not null), `createdAt`, `updatedAt`.
 
@@ -48,8 +48,8 @@ Dates are `text()` (ISO 8601 UTC) for better-auth compatibility — not `integer
 
 ## Security Notes
 
-- **CORS**: only whitelisted origins (frontend Pages + localhost). Requests without `Origin` header (curl, mobile) return `*`.
-- **Rate limiting**: 30 req/60s per IP on `/api/auth/*` via Workers Rate Limiting binding.
+- **CORS**: only whitelisted origins (frontend Worker + localhost). Requests without `Origin` header (curl, mobile) return `*`.
+- **Rate limiting**: better-auth built-in limiter (database storage, per-endpoint rules) for `/api/auth/*`; Workers Rate Limiting binding per IP on `/api/accounts/:id/token`, `/api/internal/*` and `/api/stats`.
 - **Security headers**: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`.
 - **Input validation**: Zod with max lengths + trimming; email normalized to lowercase; `cookieToken` must be a single RFC 6265 cookie value (e.g. `v2_CAQSDGRlOG9...`), not a full cookie string like `ltoken=...; ltuid=...`.
 - **Parameterized queries**: user ID never string-interpolated into raw SQL.
