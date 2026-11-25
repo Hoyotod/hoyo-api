@@ -33,6 +33,8 @@ const allowedOrigins = [
   "http://127.0.0.1:8787",
   "https://hoyo.haiueom.workers.dev",
   "https://hoyo-api.haiueom.workers.dev",
+  "https://hoyo.my.id",
+  "https://api.hoyo.my.id",
 ];
 
 app.use(

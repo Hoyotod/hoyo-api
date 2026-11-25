@@ -34,6 +34,8 @@ export const initAuth = (env: Env) => {
   const prodOrigins = [
     "https://hoyo.haiueom.workers.dev",
     "https://hoyo-api.haiueom.workers.dev",
+    "https://hoyo.my.id",
+    "https://api.hoyo.my.id",
   ];
 
   return betterAuth({

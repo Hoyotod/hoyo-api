@@ -2,6 +2,11 @@ name = "hoyo-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[routes]]
+pattern = "api.hoyo.my.id"
+custom_domain = true
 
 [[d1_databases]]
 binding = "DB"
