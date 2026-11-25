@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { eq, sql } from "drizzle-orm";
-import { users, sessions } from "../lib/db/schema";
+import { users, sessions, authAccounts } from "../lib/db/schema";
 import { updateProfileSchema } from "../lib/validation";
 import { requireAuth } from "../middleware/requireAuth";
 import type { AppEnv } from "../index";
@@ -169,6 +169,37 @@ app.put("/me", zValidator("json", updateProfileSchema), async (c) => {
   }
 
   return c.json({ user: updatedUser, passwordChanged, emailChanged, reloginRequired: passwordChanged || emailChanged });
+});
+
+// Delete user account (requires current password verification)
+// Deletes: user, all sessions, all game accounts (cascade), all redemption history (cascade), auth accounts
+app.delete("/me", zValidator("json", updateProfileSchema), async (c) => {
+  const auth = c.get("auth");
+  const db = c.get("db");
+  const user = c.get("user");
+  const { currentPassword } = c.req.valid("json");
+
+  if (!currentPassword) {
+    return c.json({ error: "currentPassword is required to delete account" }, 400);
+  }
+
+  // Verify password before deletion
+  try {
+    await auth.api.verifyPassword({
+      body: { password: currentPassword },
+      headers: c.req.raw.headers,
+    });
+  } catch {
+    return c.json({ error: "Invalid current password" }, 400);
+  }
+
+  // Delete all better-auth accounts (email/password, OAuth, etc.)
+  await db.delete(authAccounts).where(eq(authAccounts.userId, user.id));
+
+  // Delete user (cascade deletes sessions, game_accounts, redeemed_codes)
+  await db.delete(users).where(eq(users.id, user.id));
+
+  return c.json({ message: "Account deleted" });
 });
 
 export default app;
